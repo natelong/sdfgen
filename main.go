@@ -24,7 +24,7 @@ var w      int
 var h      int
 var min    int
 var max    int
-var spread int = 10
+var spread int = 20
 
 func main() {
     flag.Parse()
@@ -94,12 +94,12 @@ func main() {
     }
 
 
-    finalImage := image.NewGray16(img.Bounds())
-    var c color.Gray16
+    finalImage := image.NewGray(img.Bounds())
+    var c color.Gray
 
     for y := 0; y < h; y++ {
         for x := 0; x < w; x++ {
-            c.Y = uint16(write[w*y+x] * 65535)
+            c.Y = uint8(write[w*y+x] * 255)
             finalImage.Set(x, y, c)
         }
     }
