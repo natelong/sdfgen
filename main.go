@@ -16,8 +16,6 @@ import (
     "image/png"
 )
 
-const DEBUG = 0
-
 var read   []int
 var write  []float64
 var w      int
@@ -25,6 +23,8 @@ var h      int
 var min    int
 var max    int
 var spread int = 20
+var outSize int = 128
+var scale int = 0
 
 func main() {
     flag.Parse()
@@ -62,6 +62,11 @@ func main() {
     w = bounds.Max.X
     h = bounds.Max.Y
 
+    if w % outSize != 0 || h % outSize != 0 {
+        log.Fatalf("Image size must be evenly divisible by %v", outSize)
+    }
+    scale = int(w / outSize)
+
     read  = make([]int, w*h)
     write = make([]float64, w*h)
 
@@ -69,7 +74,7 @@ func main() {
         for x := 0; x < w; x++ {
             _, _, _, a := img.At(x, y).RGBA()
 
-            if a == 0 {
+            if a < uint32(65534/2) {
                 read[w*y + x] = 0
             } else {
                 read[w*y + x] = 1
@@ -89,17 +94,18 @@ func main() {
         }
     }
 
+    // Normalize
     for i := range write {
         write[i] = (write[i] - float64(min)) / float64(max - min)
     }
 
-
-    finalImage := image.NewGray(img.Bounds())
+    finalImage := image.NewGray(image.Rect(0, 0, outSize, outSize))
     var c color.Gray
 
-    for y := 0; y < h; y++ {
-        for x := 0; x < w; x++ {
-            c.Y = uint8(write[w*y+x] * 255)
+    for y := 0; y < outSize; y++ {
+        for x := 0; x < outSize; x++ {
+            a := avg(x, y)
+            c.Y = uint8(a * 255)
             finalImage.Set(x, y, c)
         }
     }
@@ -190,6 +196,28 @@ func at(x, y int) int {
     } else {
         return -1
     }
+}
+
+func atw(x, y int) float64 {
+    if x >= 0 && x < w && y >= 0 && y < h {
+        return write[w*y+x]
+    } else {
+        return 0
+    }
+}
+
+func avg(x, y int) float64 {
+    var count int
+    var total float64
+
+    for dy := 0; dy < scale; dy++ {
+        for dx := 0; dx < scale; dx++ {
+            total += atw(x*scale+dx, y*scale+dy)
+            count++
+        }
+    }
+
+    return total / float64(count)
 }
 
 func normalize(val float64) float64 {
